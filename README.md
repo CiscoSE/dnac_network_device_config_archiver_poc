@@ -27,6 +27,11 @@ Using the utility is simple:
 ```
 python dnac_network_device_config_archiver_poc.py
 ```
+* The utility will output a directory called *DNAC_Config_Archive* with timestamped subdirectories containing the devices configurations pulled from DNA Center.
+```
+./DNAC_Config_Archive/2019-10-16 15:36:48.905188/c9200.site1.company.com
+```
+
 
 
 ## Installation
