@@ -1,4 +1,4 @@
-DNAC = 'IP OR FQDN'
+DNAC = 'sandboxdnac.cisco.com'
 DNAC_PORT = '443'
-DNAC_USER = 'username'
-DNAC_PASSWORD = 'password'
+DNAC_USER = 'devnetuser'
+DNAC_PASSWORD = 'Cisco123!'

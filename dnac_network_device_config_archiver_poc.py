@@ -36,13 +36,14 @@ from datetime import datetime
 
 class dnac:
 
-    def __init__(self, base_url, username, password, token_timeout=3600, port=443):
+    def __init__(self, base_url, username, password, token_timeout=3600, port=443, verify_cert=True):
         self.base_url = base_url
         self.port = port
         self.username = username
         self.password = password
         self.token = None
         self.token_timeout = token_timeout # Not implemented
+        self.verify_cert = verify_cert # Toggles certificate verification in Requests
 
 
     def _get(self, api_endpoint):
@@ -54,7 +55,7 @@ class dnac:
             }
 
         try:
-            resp = requests.get(url, headers=headers, verify=False)
+            resp = requests.get(url, headers=headers, verify=self.verify_cert)
             return resp
         except(ConnectionError):
             print("Missing or invalid connection argument (url, API Key, etc.).")
@@ -70,11 +71,12 @@ class dnac:
 
         url = 'https://{}/dna/system/api/v1/auth/token'.format(self.base_url)
         try:
-            resp = requests.post(url, auth=HTTPBasicAuth(self.username, self.password), verify=False)
+            resp = requests.post(url, auth=HTTPBasicAuth(self.username, self.password), verify=self.verify_cert)
             self.token = resp.json()['Token']
             return self.token
         except: # Not good, but this is just a poc
-            print('\n\nFailed to connect and authenticate to DNAC. Check reachability, DNS, and/or username and password.\n\n')
+            print('Failed to connect and authenticate to DNAC. Check reachability, DNS, and/or username and password.\n')
+            return None
 
 
     def get_device_list(self):
@@ -108,35 +110,46 @@ class dnac:
         Returns device configuration as a string
         '''
 
-        api_endpoint = '/dna/intent/api/v1/network-device/{}/config'.format(network_device_id)
-        resp = self._get(api_endpoint)
-        device_config = resp.json()
+        device_config = {}
+        if network_device_id:
+            api_endpoint = '/dna/intent/api/v1/network-device/{}/config'.format(network_device_id)
+            resp = self._get(api_endpoint)
+
+            if resp.content:
+                device_config = resp.json()
 
         if 'response' in device_config.keys():
             return device_config['response'] # Take off outer response dictionary and return string
+        else:
+            return None
 
 
 if __name__ == '__main__':
 
-    dnac_conn = dnac(base_url=DNAC, username=DNAC_USER, password=DNAC_PASSWORD)
+    dnac_conn = dnac(base_url=DNAC, username=DNAC_USER, password=DNAC_PASSWORD, verify_cert=True)
     
-    dnac_conn.connect()
-    
-    device_list = dnac_conn.get_device_list()
+    print('\nConnecting to DNAC at {}...\n'.format(DNAC))
+    conn_result = dnac_conn.connect()
 
-    output_path = './DNAC_Config_Archive/{}/'.format(datetime.now())
-    os.makedirs(output_path)
-    
-    if os.path.exists(output_path):
-        device_output_dict = {}
+    if conn_result:
+        print('Getting device list from {}...\n'.format(DNAC))
+        device_list = dnac_conn.get_device_list()
 
-        for device in device_list:
-            device_config = dnac_conn.get_device_config(device['id'])
-            device_hostname = device['hostname']
-            device_output_dict[device_hostname] = device_config
+        print('Creating local directories...\n')
+        output_path = './DNAC_Config_Archive/{}/'.format(datetime.now())
+        os.makedirs(output_path)
+        
+        if os.path.exists(output_path):
+            device_output_dict = {}
 
-        for device, config in device_output_dict.items():
-            if config:
-                with open(output_path + device, 'w') as f:
-                    f.write(config)
-                print('Saved configuration for {}.'.format(device))
+            print('Getting device configurations from {}...\n'.format(DNAC))
+            for device in device_list:
+                device_config = dnac_conn.get_device_config(device['id'])
+                device_hostname = device['hostname']
+                device_output_dict[device_hostname] = device_config
+
+            for device, config in device_output_dict.items():
+                if device and config:
+                    with open(output_path + device, 'w') as f:
+                        f.write(config)
+                    print('Saved configuration for {} in {}.\n'.format(device, output_path))
