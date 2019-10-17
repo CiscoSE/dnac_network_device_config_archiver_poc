@@ -29,13 +29,13 @@ class dnac:
             resp = requests.get(url, headers=headers, verify=False)
             return resp
         except(ConnectionError):
-            print("Missing or invalid connection argument (orgid, api_url, api_key).")
+            print("Missing or invalid connection argument (url, API Key, etc.).")
             raise SystemExit
 
 
-    def authenticate(self):
+    def connect(self):
         '''
-        Authenticates to DNAC and gets a corresponding token
+        Connects and authenticates to DNAC and gets a corresponding token
         Takes username and password for basic auth
         Returns authentication token to use with requests to DNAC's API
         '''
@@ -83,14 +83,16 @@ class dnac:
         api_endpoint = '/dna/intent/api/v1/network-device/{}/config'.format(network_device_id)
         resp = self._get(api_endpoint)
         device_config = resp.json()
-        return device_config['response'] # Take off outer response dictionary and return string
+
+        if 'response' in device_config.keys():
+            return device_config['response'] # Take off outer response dictionary and return string
 
 
 if __name__ == '__main__':
 
     dnac_conn = dnac(base_url=DNAC, username=DNAC_USER, password=DNAC_PASSWORD)
     
-    dnac_conn.authenticate()
+    dnac_conn.connect()
     
     device_list = dnac_conn.get_device_list()
 
@@ -106,7 +108,7 @@ if __name__ == '__main__':
             device_output_dict[device_hostname] = device_config
 
         for device, config in device_output_dict.items():
-            if device:
+            if config:
                 with open(output_path + device, 'w') as f:
                     f.write(config)
                 print('Saved configuration for {}.'.format(device))
